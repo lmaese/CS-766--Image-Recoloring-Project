@@ -1,4 +1,5 @@
 # adapted from https://github.com/tensorflow/docs/blob/master/site/en/tutorials/generative/pix2pix.ipynb
+import argparse
 import tensorflow as tf
 
 import os
@@ -94,8 +95,14 @@ def load_image_test(image_file):
 
     return input_image, real_image
 
+#parser to specfiy whether continuing training
+parser = argparse.ArgumentParser()
+parser.add_argument("--continue_checkpoint", type=int, default=0, help="start from previous checkpoint, 1=yes, 2=no")
+parser.add_argument("--n_epochs", type=int, default=1, help="number of epochs to train, default=1")
+opt = parser.parse_args()
+
 PATH  = pathlib.Path(os.getcwd())
-train_dataset = tf.data.Dataset.list_files(str(PATH / 'dataset/train/*.jpg'))
+train_dataset = tf.data.Dataset.list_files(str(PATH / '../../data/celeb1/*.png'))
 train_dataset = train_dataset.map(load_image_train,
                                   num_parallel_calls=tf.data.AUTOTUNE)
 train_dataset = train_dataset.shuffle(BUFFER_SIZE)
@@ -104,6 +111,8 @@ train_dataset = train_dataset.batch(BATCH_SIZE)
 test_dataset = tf.data.Dataset.list_files(str(PATH / './dataset/test/*.jpg'))
 test_dataset = test_dataset.map(load_image_test)
 test_dataset = test_dataset.batch(BATCH_SIZE)
+
+
 
 
 
@@ -250,15 +259,17 @@ generator_optimizer = tf.keras.optimizers.Adam(2e-4, beta_1=0.5)
 discriminator_optimizer = tf.keras.optimizers.Adam(2e-4, beta_1=0.5)
 checkpoint_dir = './training_checkpoints'
 checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt")
+
 checkpoint = tf.train.Checkpoint(generator_optimizer=generator_optimizer,
                                  discriminator_optimizer=discriminator_optimizer,
                                  generator=generator,
                                  discriminator=discriminator)
+if opt.continue_checkpoint != 0:
+    checkpoint.restore(tf.train.latest_checkpoint('./training_checkpoints/'))
 
 
 
-
-def generate_images(model, test_input, tar):
+def generate_images(model, test_input, tar, fig_num):
     prediction = model(test_input, training=True)
     plt.figure(figsize=(15, 15))
 
@@ -271,10 +282,10 @@ def generate_images(model, test_input, tar):
         # Getting the pixel values in the [0, 1] range to plot.
         plt.imshow(display_list[i] * 0.5 + 0.5)
         plt.axis('off')
-    plt.show()
+    plt.savefig("train_results/%s.png" % fig_num)
 
 for example_input, example_target in test_dataset.take(1):
-    generate_images(generator, example_input, example_target)
+    generate_images(generator, example_input, example_target,'sample')
 
 
 
@@ -320,11 +331,12 @@ def fit(train_ds, test_ds, steps):
                 print(f'Time taken for 1000 steps: {time.time()-start:.2f} sec\n')
 
             start = time.time()
-
-            generate_images(generator, example_input, example_target)
+            
+            #str_step = str(step)
+            generate_images(generator, example_input, example_target, int(step))
             print(f"Step: {step//1000}k")
 
-        train_step(input_image, target, step)
+        train_step(input_image, target, (step))
 
         # Training step
         if (step+1) % 10 == 0:
@@ -334,6 +346,7 @@ def fit(train_ds, test_ds, steps):
         # Save (checkpoint) the model every 5k steps
         if (step + 1) % 5000 == 0:
             checkpoint.save(file_prefix=checkpoint_prefix)
-
-fit(train_dataset, test_dataset, steps=5000)
+batches__per_epoch = int(len(train_dataset))
+n_steps = batches__per_epoch * opt.n_epochs
+fit(train_dataset, test_dataset, n_steps)
 
