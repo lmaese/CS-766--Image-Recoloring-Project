@@ -14,7 +14,7 @@ class ImageForm(forms.ModelForm):
     """Form for the image model"""
     class Meta:
         model = Image
-        fields = ('title', 'image')
+        fields = ('image', )
 
 def index(request):
     #return render(request, 'color/index.html', {})
