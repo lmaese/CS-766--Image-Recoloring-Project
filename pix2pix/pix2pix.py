@@ -1,6 +1,7 @@
 # adapted from https://github.com/tensorflow/docs/blob/master/site/en/tutorials/generative/pix2pix.ipynb
 import argparse
 import tensorflow as tf
+import numpy as np
 
 import os
 import pathlib
@@ -9,6 +10,7 @@ import datetime
 
 from matplotlib import pyplot as plt
 from IPython import display
+import evaluate as ev
 
 
 # The facade training set consist of 400 images
@@ -102,7 +104,7 @@ parser.add_argument("--n_epochs", type=int, default=1, help="number of epochs to
 opt = parser.parse_args()
 
 PATH  = pathlib.Path(os.getcwd())
-train_dataset = tf.data.Dataset.list_files(str(PATH / '../../data/celeb1/*.png'))
+train_dataset = tf.data.Dataset.list_files(str(PATH / '../../data/celeb2/*.png'))
 train_dataset = train_dataset.map(load_image_train,
                                   num_parallel_calls=tf.data.AUTOTUNE)
 train_dataset = train_dataset.shuffle(BUFFER_SIZE)
@@ -267,12 +269,23 @@ checkpoint = tf.train.Checkpoint(generator_optimizer=generator_optimizer,
 if opt.continue_checkpoint != 0:
     checkpoint.restore(tf.train.latest_checkpoint('./training_checkpoints/'))
 
+def calculate_metrics(tar, prediction, fig_num):
+    img_mse = ev.calculate_mse(tar, prediction)
+    ing_psnr = ev.calculate_psnr(tar, prediction)
+    img_ssim = ev.calculate_ssim(tar, prediction)
+    f=open("model_metrics.txt", "a")
+    f.write("metrics for img %s:\n" % fig_num)
+    f.write("mse: %s\n" % img_mse)
+    f.write("psnr: %s\n" % ing_psnr)
+    f.write("ssim: %s\n\n" % img_ssim)
+    f.close
 
 
 def generate_images(model, test_input, tar, fig_num):
     prediction = model(test_input, training=True)
     plt.figure(figsize=(15, 15))
 
+    calculate_metrics(tar[0].numpy(), prediction[0].numpy(), fig_num)
     display_list = [test_input[0], tar[0], prediction[0]]
     title = ['Input Image', 'Ground Truth', 'Predicted Image']
 
@@ -322,8 +335,13 @@ def train_step(input_image, target, step):
 def fit(train_ds, test_ds, steps):
     example_input, example_target = next(iter(test_ds.take(1)))
     start = time.time()
+    model_step = 0
 
     for step, (input_image, target) in train_ds.repeat().take(steps).enumerate():
+        model_step = step
+        if opt.continue_checkpoint != 0:
+            model_step = model_step + (steps * int(checkpoint.save_counter))
+
         if (step) % 1000 == 0:
             display.clear_output(wait=True)
 
@@ -333,7 +351,7 @@ def fit(train_ds, test_ds, steps):
             start = time.time()
             
             #str_step = str(step)
-            generate_images(generator, example_input, example_target, int(step))
+            generate_images(generator, example_input, example_target, int(model_step))
             print(f"Step: {step//1000}k")
 
         train_step(input_image, target, (step))
@@ -346,7 +364,7 @@ def fit(train_ds, test_ds, steps):
         # Save (checkpoint) the model every 5k steps
         if (step + 1) % 5000 == 0:
             checkpoint.save(file_prefix=checkpoint_prefix)
-batches__per_epoch = int(len(train_dataset))
-n_steps = batches__per_epoch * opt.n_epochs
+batches_per_epoch = int(len(train_dataset))
+n_steps = batches_per_epoch * opt.n_epochs
 fit(train_dataset, test_dataset, n_steps)
 
