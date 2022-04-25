@@ -101,9 +101,11 @@ def load_image_test(image_file):
 parser = argparse.ArgumentParser()
 parser.add_argument("--continue_checkpoint", type=int, default=0, help="start from previous checkpoint, 1=yes, 2=no")
 parser.add_argument("--n_epochs", type=int, default=1, help="number of epochs to train, default=1")
+parser.add_argument("--model", type=str, required=False, help="Path to model")
 opt = parser.parse_args()
 
 PATH  = pathlib.Path(os.getcwd())
+#train_dataset = tf.data.Dataset.list_files(str(PATH / './dataset/train/*.jpg'))
 train_dataset = tf.data.Dataset.list_files(str(PATH / '../../data/celeb3/*.png'))
 train_dataset = train_dataset.map(load_image_train,
                                   num_parallel_calls=tf.data.AUTOTUNE)
@@ -207,6 +209,7 @@ def Generator():
 generator = Generator()
 
 
+
 LAMBDA = 100
 loss_object = tf.keras.losses.BinaryCrossentropy(from_logits=True)
 def generator_loss(disc_generated_output, gen_output, target):
@@ -271,6 +274,11 @@ checkpoint = tf.train.Checkpoint(generator_optimizer=generator_optimizer,
 
 if opt.continue_checkpoint != 0:
     checkpoint.restore(tf.train.latest_checkpoint('./training_checkpoints/'))
+if opt.model:
+    generator = tf.keras.models.load_model(opt.model)
+generator.compile(optimizer=generator_optimizer,
+                    loss = loss_object,
+                    metrics=['accuracy'])
 
 def calculate_metrics(tar, prediction, fig_num):
     img_mse = ev.calculate_mse(tar, prediction)

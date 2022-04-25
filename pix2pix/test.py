@@ -9,8 +9,8 @@ import numpy as np
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--image_path", type=str, required=True, help="Path to image")
-parser.add_argument("--checkpoint_path", type=str, required=True, help="Path to checkpoint folder")
-parser.add_argument("--model", type=str, required=True, help="Path to model")
+parser.add_argument("--checkpoint_path", type=str, default="./training_checkpoints/", help="Path to checkpoint folder")
+parser.add_argument("--model", type=str, default="./model/pixgen", help="Path to model")
 opt = parser.parse_args()
 print(opt)
 
