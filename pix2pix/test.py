@@ -1,11 +1,7 @@
 import tensorflow as tf
-#import torchvision.transforms as T
 import argparse
 import os
-from PIL import Image
 from keras.preprocessing.image import save_img
-from keras.preprocessing.image import img_to_array
-import numpy as np
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--image_path", type=str, required=True, help="Path to image")
@@ -14,8 +10,7 @@ parser.add_argument("--model", type=str, default="./model/pixgen", help="Path to
 opt = parser.parse_args()
 print(opt)
 
-#pil_transform = T.ToPILImage()
-#ten_transform = T.ToTensor()
+
 # Each image is 256x256 in size
 IMG_WIDTH = 256
 IMG_HEIGHT = 256
@@ -68,15 +63,10 @@ generator = tf.keras.models.load_model(opt.model)
 checkpoint = tf.train.Checkpoint(generator=generator)
 checkpoint.restore(tf.train.latest_checkpoint(opt.checkpoint_path))
 
-
-hr_image = Image.open(opt.image_path)
-#ten_image = ten_transform(hr_image)
 norm_image, oth =  load_image_test(opt.image_path)
 norm_image = norm_image[None]
-
 gen_image = test_image(generator,norm_image)
-output_image = img_to_array(gen_image)
-pil_image=Image.fromarray((output_image* 255).astype(np.uint8))
+
 # Save image
 save_img("output/test.png", gen_image)
 
